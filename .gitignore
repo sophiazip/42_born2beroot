@@ -1,0 +1,5 @@
+# Installer images and generated account data are local artifacts.
+*.iso
+*.iso.sha256
+preseed.cfg
+en.subject.pdf
