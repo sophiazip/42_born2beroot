@@ -1,69 +1,119 @@
-*This project has been created as part of the 42 curriculum by eroque-d.*
-
-# Born2beroot Debian ISO builder
+<p align="center">
+  <i>This project has been created as part of the 42 curriculum by eroque-d</i>
+</p>
+<h1 align="center">Born2beRoot</h1>
+<p align="center">
+  <strong>A small server, built to understand what runs beneath it</strong>
+</p>
 
 ## Description
 
-This repository contains scripts that add a Debian Installer preseed and post-install configuration to an official Debian stable amd64 netinst ISO. The resulting installer configures an encrypted LVM installation, a 42 user, SSH on port 4242, UFW, AppArmor, password aging and quality rules, sudo logging, and the required monitoring report.
+Born2beRoot introduces virtualization and system administration by setting up a
+secure Linux server in VirtualBox or UTM. This repository provides scripts to
+customize a Debian stable installer ISO and configure the mandatory services and
+policies: encrypted LVM, SSH on port 4242, UFW, AppArmor, password rules, sudo
+logging, and a monitoring report.
 
-The ISO is only a starting point for the subject. It does not create a VirtualBox/UTM virtual machine, calculate or save the virtual disk signature, or replace understanding and checking each configured service. Debian Installer still asks for the disk encryption passphrase. Password hashes are generated from the passwords entered while building the ISO and are present in the ISO's preseed file; keep the generated ISO private and delete it securely when no longer needed.
+The scripts prepare the installer and configure the installed system; they do not
+create the VM or virtual disk, produce the disk signature, or replace checking the
+result and understanding each setting. Debian Installer still asks for the disk
+encryption passphrase. Account password hashes are embedded in the generated ISO,
+so keep it private and do not commit it.
 
-## Instructions
+## Build and usage
 
-### Requirements
-
-- A Debian stable amd64 netinst ISO obtained from the [official Debian CD image site](https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/).
-- `xorriso`, `openssl`, `sha256sum`, and `realpath` on the build host.
-- A VM with a blank virtual disk (the partitioning recipe erases the selected disk), network access during installation, and at least 20 GB of disk space.
-
-On Debian or Ubuntu, install the ISO tooling with `sudo apt install xorriso openssl coreutils`.
-
-### Build the installer ISO
+Install the tools on Debian or Ubuntu:
 
 ```sh
-chmod +x scripts/*.sh
+sudo apt install xorriso openssl coreutils
+```
+
+Get an official Debian stable amd64 netinst image from the
+[Debian CD image site](https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/),
+then build the customized installer:
+
+```sh
 scripts/build-iso.sh debian-stable-amd64-netinst.iso born2beroot.iso
 ```
 
-Enter your 42 login without the `42` hostname suffix, then choose strong root and user passwords when prompted. The script checks their length and character classes, then stores SHA-512 password hashes in the ISO. Use a private working directory and do not commit the generated ISO.
+The script asks for your 42 login (without the hostname suffix `42`), then root
+and user passwords. It checks the password length and character classes and stores
+SHA-512 hashes in the generated ISO. Do not commit that ISO. Use a VM with a blank
+disk of at least 20 GB and network access; the guided encrypted-LVM setup erases
+the selected disk.
 
-The installer expects the standard Debian amd64 netinst layout. Start the VM from the generated ISO. At the Debian Installer boot menu, edit the **Install** entry (press `e` in GRUB or `Tab` in the BIOS menu), append:
+Boot the VM from `born2beroot.iso`. At the Debian Installer boot menu, edit the
+**Install** entry (`e` in GRUB or `Tab` in the BIOS menu) and append:
 
 ```text
 auto=true priority=critical preseed/file=/cdrom/preseed.cfg
 ```
 
-Boot that edited entry. The guided encrypted-LVM partitioning erases the VM disk. Enter the disk encryption passphrase when requested. The machine needs network access to install packages. Reboot from the virtual disk after installation and remove/eject the installer ISO.
+Boot the edited entry and enter the disk encryption passphrase when prompted. After
+installation, boot from the virtual disk and eject the ISO. At the VM console, change
+the initial root and user passwords when prompted; this applies the configured
+password quality and history checks. Then connect with:
 
-The first console login for both root and the 42 user requires changing the password. Do this at the VM console before connecting over SSH; it applies the configured password quality and history checks to the new passwords. The user can then connect with `ssh -p 4242 <your-login>@<vm-ip>`.
+```sh
+ssh -p 4242 <your-login>@<vm-ip>
+```
 
-### Included scripts
+> The installer requires network access to download packages. Only TCP port 4242 is
+> opened for inbound connections by the configured firewall.
 
-- `scripts/build-iso.sh` prompts for account details, generates a preseed, and adds it and the installation scripts to a bootable ISO with `xorriso`.
-- `scripts/late-install.sh` configures SSH, UFW, sudo, PAM password quality, password aging, AppArmor, and cron in the installed system.
-- `scripts/monitoring.sh` reports the mandatory system and resource information. Cron broadcasts it at boot and every ten minutes with `wall`.
+## Codebase structure
 
-## Project design
+The setup follows this sequence:
 
-Debian stable is used because it is recommended by the subject and has a small, well documented server installation. Its broad package ecosystem and `apt` tools are convenient; its release cadence is slower than Rocky's and package versions prioritize stability. Rocky Linux follows Red Hat Enterprise Linux compatibility and commonly uses SELinux and `dnf`, which is useful in RHEL environments, but it was not selected for this Debian-focused setup.
+1. `scripts/build-iso.sh` prompts for account details, generates a preseed, and adds
+   it and the setup scripts to a bootable ISO with `xorriso`.
+2. Debian Installer partitions the VM disk with encrypted LVM and installs the
+   minimal Debian system and required packages.
+3. `scripts/late-install.sh` configures the hostname and user groups, SSH, UFW,
+   sudo, PAM password quality, password aging, AppArmor, and cron.
+4. Cron runs `scripts/monitoring.sh` at boot and every ten minutes, broadcasting its
+   report to logged-in terminals with `wall`.
 
-The installer uses Debian's guided encrypted LVM layout, which provides encrypted logical volumes for the system and swap. SSH is the only inbound firewall port. No desktop environment is selected. The user is placed in `user42` and `sudo`; SSH root login is disabled. The machine is configured with AppArmor, UFW, and cron.
+## Source layout
 
-| Comparison | Debian setup | Alternative |
+```text
+scripts/
+├── build-iso.sh       creates a customized Debian installer ISO
+├── late-install.sh    configures security and services in the installed system
+└── monitoring.sh      reports system and resource usage
+```
+
+## Design choices
+
+Debian stable is recommended by the subject and provides a minimal server install,
+a broad package ecosystem, and straightforward `apt` administration. Its stable
+release model favors tested package versions. Rocky Linux is closer to the Red Hat
+Enterprise Linux ecosystem and commonly uses `dnf` and SELinux, but requires a
+different setup and was not selected here.
+
+The installer uses encrypted LVM for system storage and swap. SSH root login is
+disabled, the 42 user belongs to `user42` and `sudo`, and UFW allows inbound SSH on
+port 4242. No graphical desktop is installed. AppArmor is enabled at startup, and
+cron handles the required periodic monitoring.
+
+| Topic | Debian setup | Alternative |
 |---|---|---|
-| Debian vs Rocky Linux | Debian stable, `apt`, AppArmor | Rocky Linux, `dnf`, SELinux; closer to RHEL administration |
-| AppArmor vs SELinux | AppArmor confines applications with path-based profiles and is enabled here | SELinux applies label- and policy-based mandatory access controls; common on RHEL systems |
-| UFW vs firewalld | UFW provides a simple host firewall interface and allows TCP 4242 | firewalld supports dynamic zones and service abstractions and is required by the Rocky path in the subject |
-| VirtualBox vs UTM | Either can run this amd64 Debian VM; VirtualBox is the common cross-platform option | UTM is useful on Apple Silicon and uses QEMU virtualization/emulation |
+| Debian vs Rocky Linux | Debian stable, `apt`, and AppArmor; simple server installation | Rocky Linux, `dnf`, and SELinux; familiar in RHEL environments |
+| AppArmor vs SELinux | AppArmor confines applications with path-based profiles | SELinux uses labels and policy rules for mandatory access control |
+| UFW vs firewalld | UFW provides a simple host firewall; only TCP 4242 is allowed inbound | firewalld provides zones and service abstractions; the subject requires it for Rocky |
+| VirtualBox vs UTM | VirtualBox is a common cross-platform choice for the required VM | UTM uses QEMU and is useful on Apple Silicon, including emulation where needed |
 
 ## Resources
 
-- Born2beRoot subject PDF supplied with the project environment (kept out of this Git repository)
+- Born2beRoot subject PDF supplied with the project environment (not included in this repository)
 - [Debian Installation Guide](https://www.debian.org/releases/stable/amd64/)
 - [Debian preseed documentation](https://www.debian.org/releases/stable/amd64/apbs04.en.html)
 - [Debian release information](https://www.debian.org/releases/)
-- [OpenSSH server documentation](https://manpages.debian.org/openssh-server/sshd_config.5.en.html)
+- [OpenSSH server configuration](https://manpages.debian.org/openssh-server/sshd_config.5.en.html)
 - [UFW manual](https://manpages.debian.org/ufw/ufw.8.en.html)
 - [sudoers manual](https://manpages.debian.org/sudo/sudoers.5.en.html)
 
-AI was used to draft and organize these scripts and this documentation from the subject's requirements. Review the configuration and be ready to explain each setting during evaluation; the ISO output and VM installation must be verified by the student.
+### AI
+
+AI assisted with drafting and organizing the scripts and documentation from the
+subject requirements. I reviewed the configuration and checked the installed VM.
