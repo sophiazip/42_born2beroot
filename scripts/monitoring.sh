@@ -9,13 +9,13 @@ get_cpu_usage() {
 
     read -r _ user nice system idle iowait irq softirq steal _ < /proc/stat
     before_idle=$((idle + iowait))
-    before_total=$((user + nice + system + idle + iowait + irq + softirq + steal))
+    before_total=$((user + nice + system + idle + iowait + irq + softirq + ${steal:-0}))
 
     # A utilização é calculada pela diferença entre duas amostras de /proc/stat.
     sleep 1
     read -r _ user nice system idle iowait irq softirq steal _ < /proc/stat
     after_idle=$((idle + iowait))
-    after_total=$((user + nice + system + idle + iowait + irq + softirq + steal))
+    after_total=$((user + nice + system + idle + iowait + irq + softirq + ${steal:-0}))
     total=$((after_total - before_total))
 
     if (( total > 0 )); then
@@ -37,11 +37,15 @@ get_physical_cpu_count() {
 }
 
 get_memory_usage() {
-    free -m | awk '/^Mem:/ {
-        used = $3
-        total = $2
-        printf "%d/%dMB (%.2f%%)", used, total, (total ? used * 100 / total : 0)
-    }'
+    awk '
+        /^MemTotal:/     { total = $2 }
+        /^MemAvailable:/ { avail = $2 }
+        END {
+            used = total - avail
+            printf "%d/%dMB (%.2f%%)", used / 1024, total / 1024,
+                   (total ? used * 100 / total : 0)
+        }
+    ' /proc/meminfo
 }
 
 get_disk_usage() {
@@ -54,14 +58,15 @@ get_network_interface() {
 }
 
 get_ipv4_address() {
-    ip -o -4 route get 1.1.1.1 2>/dev/null | awk '{ print $7; exit }'
+    ip -o -4 route get 1.1.1.1 2>/dev/null |
+        awk '{ for (i = 1; i <= NF; i++) if ($i == "src") { print $(i + 1); exit } }'
 }
 
 get_sudo_command_count() {
-    if [[ -f /var/log/sudo/sudo.log ]]; then
+    if [[ -r /var/log/sudo/sudo.log ]]; then
         grep -c 'COMMAND=' /var/log/sudo/sudo.log || true
     else
-        journalctl -q _COMM=sudo --no-pager 2>/dev/null | wc -l
+        journalctl -q _COMM=sudo --no-pager 2>/dev/null | grep -c 'COMMAND=' || true
     fi
 }
 
