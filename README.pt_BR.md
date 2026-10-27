@@ -85,7 +85,8 @@ A configuração segue estas etapas:
 scripts/
 ├── build-iso.sh       gera uma ISO personalizada do instalador Debian
 ├── late-install.sh    configura segurança e serviços no sistema instalado
-└── monitoring.sh      exibe informações do sistema e uso de recursos
+├── monitoring.sh      exibe informações do sistema e uso de recursos
+└── tests_vm.sh        diversos testes para verificar se as configurações da VM estão corretas em relação ao subject
 ```
 
 ## Escolhas de projeto
@@ -121,5 +122,6 @@ periódico exigido.
 
 ### IA
 
-A IA auxiliou na elaboração e organização dos scripts e da documentação com base
+- A IA criou completamente o [script de testes](./scripts/tests_vm.sh). Eu apenas revisei.
+- A IA auxiliou na elaboração e organização dos scripts e da documentação com base
 nos requisitos do subject. Revisei a configuração e verifiquei a VM instalada.
