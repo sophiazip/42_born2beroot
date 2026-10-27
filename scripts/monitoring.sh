@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 set -u
 
 # Coleta os indicadores exigidos pelo subject e os envia para a saída padrão.
@@ -96,7 +97,7 @@ main() {
     mac=$(cat "/sys/class/net/${interface:-lo}/address" 2>/dev/null || echo unknown)
     sudo_count=$(get_sudo_command_count)
 
-    cat <<EOF
+    message=$(cat <<EOF
 #Architecture: $architecture
 #Physical CPU: $physical_cpu
 #vCPU: $virtual_cpu
@@ -110,6 +111,13 @@ main() {
 #Network: IP ${ipv4:-unknown} ($mac)
 #Sudo: $sudo_count cmd
 EOF
+)
+
+    for tty_device in /dev/pts/[0-9]*; do
+       if [ -w "$tty_device" ]; then
+		echo -e "\nBroadcast Message from root...\n$message\n" > "$tty_device"
+        fi
+    done
 }
 
 main "$@"
