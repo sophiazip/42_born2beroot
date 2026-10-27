@@ -80,7 +80,8 @@ The setup follows this sequence:
 scripts/
 ├── build-iso.sh       creates a customized Debian installer ISO
 ├── late-install.sh    configures security and services in the installed system
-└── monitoring.sh      reports system and resource usage
+├── monitoring.sh      reports system and resource usage
+└── tests_vm.sh        various tests to verify if the VM settings are correct with the subject
 ```
 
 ## Design choices
@@ -115,5 +116,6 @@ cron handles the required periodic monitoring.
 
 ### AI
 
-AI assisted with drafting and organizing the scripts and documentation from the
+- AI ​​created the [test script](./scripts/tests_vm.sh) completely. I just reviewed it.
+- AI assisted with drafting and organizing the scripts and documentation from the
 subject requirements. I reviewed the configuration and checked the installed VM.
